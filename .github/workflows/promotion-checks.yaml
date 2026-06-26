@@ -6,6 +6,10 @@ on:
       - 'env/**-next'
       - 'env/**'
 
+permissions:
+  statuses: write
+  checks: write
+
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
