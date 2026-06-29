@@ -1,1 +1,1 @@
-{"drySha":"a2631c9e2dd4673afd347bdccf39afd8cc0bcb6b","author":"Ali Mobrem <amobrem@redhat.com>","subject":"ci: add promotion checks workflow","date":"2026-06-26T17:50:00Z"}
+{"drySha": "4874b8c0c800b95ecbdf065e081dd3295912a0bf", "repoURL": "https://github.com/alimobrem/argocd-example-apps", "author": "Ali Mobrem <amobrem@redhat.com>", "subject": "e2e: marker 1782743733", "date": "2026-06-29T07:35:34-07:00"}
