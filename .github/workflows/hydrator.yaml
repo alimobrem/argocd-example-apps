@@ -1,0 +1,77 @@
+name: Hydrator
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+
+permissions:
+  contents: write
+
+jobs:
+  hydrate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [dev, staging, prod]
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Render manifests
+        run: |
+          mkdir -p /tmp/hydrated
+          kustomize build kustomize-guestbook > /tmp/hydrated/manifests.yaml
+
+      - name: Create hydrator.metadata
+        env:
+          DRY_SHA: ${{ github.sha }}
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          AUTHOR=$(git log -1 --format='%an <%ae>')
+          SUBJECT=$(git log -1 --format='%s')
+          DATE=$(git log -1 --format='%aI')
+          python3 -c "
+          import json, sys, os
+          print(json.dumps({
+            'drySha': os.environ['DRY_SHA'],
+            'repoURL': os.environ['REPO_URL'],
+            'author': sys.argv[1],
+            'subject': sys.argv[2],
+            'date': sys.argv[3],
+          }))
+          " "$AUTHOR" "$SUBJECT" "$DATE" > /tmp/hydrated/hydrator.metadata
+
+      - name: Push to -next branch
+        env:
+          DRY_SHA: ${{ github.sha }}
+        run: |
+          BRANCH="env/${{ matrix.env }}-next"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BRANCH" || true
+          git checkout -B "$BRANCH" "origin/$BRANCH" 2>/dev/null || git checkout --orphan "$BRANCH"
+
+          # Clear working tree and copy hydrated output
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/hydrated/manifests.yaml .
+          cp /tmp/hydrated/hydrator.metadata .
+
+          git add -A
+          DIFF=$(git diff --cached --stat)
+          if [ -z "$DIFF" ]; then
+            echo "No changes to hydrated output, skipping push"
+            exit 0
+          fi
+
+          git commit -m "hydrator: render ${DRY_SHA:0:7} for ${{ matrix.env }}"
+          git push origin "$BRANCH"
